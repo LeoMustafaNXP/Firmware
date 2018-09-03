@@ -105,7 +105,8 @@ endif()
 
 add_custom_command(OUTPUT romfs_extras.stamp
 	COMMAND ${CMAKE_COMMAND} -E make_directory ${romfs_gen_root_dir}/extras/
-	COMMAND ${CMAKE_COMMAND} -E copy_directory ${PX4_BINARY_DIR}/romfs_extras/ ${romfs_gen_root_dir}/extras/
+	#COMMAND ${CMAKE_COMMAND} -E copy_directory ${PX4_BINARY_DIR}/romfs_extras/ ${romfs_gen_root_dir}/extras/
+	COMMAND if [ -d  ${PX4_BINARY_DIR}/romfs_extras ]; then  ${CMAKE_COMMAND} -E copy_directory ${PX4_BINARY_DIR}/romfs_extras/ ${romfs_gen_root_dir}/extras/ \; fi
 	COMMAND ${CMAKE_COMMAND} -E touch romfs_extras.stamp
 	DEPENDS
 		${romfs_gen_root_dir}/init.d/rcS
