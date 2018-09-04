@@ -32,6 +32,10 @@
 ############################################################################
 
 set(msg_files
+	heartbeatsign.msg
+	nfc_test.msg
+	nfc_tx.msg
+	nfc_rx.msg
 	actuator_armed.msg
 	actuator_controls.msg
 	actuator_direct.msg

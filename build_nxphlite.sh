@@ -1,7 +1,7 @@
 #! /bin/bash
 # get a refresh from git and execute make.
 
-git pull origin master
+#git pull origin master
 
 make  nxphlite-v3_default
 
