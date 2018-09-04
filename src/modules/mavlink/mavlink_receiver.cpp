@@ -110,6 +110,7 @@ MavlinkReceiver::MavlinkReceiver(Mavlink *parent) :
 	_hil_local_pos{},
 	_hil_land_detector{},
 	_control_mode{},
+	_nfc_rx_pub(nullptr),
 	_global_pos_pub(nullptr),
 	_local_pos_pub(nullptr),
 	_attitude_pub(nullptr),
@@ -327,6 +328,10 @@ MavlinkReceiver::handle_message(mavlink_message_t *msg)
 		handle_message_debug_vect(msg);
 		break;
 
+	case MAVLINK_MSG_ID_NFC:
+		handle_message_nfc_rx(msg);
+		break;
+
 	default:
 		break;
 	}
@@ -464,6 +469,29 @@ MavlinkReceiver::send_storage_information(int storage_id)
 	storage_info.time_boot_ms = hrt_absolute_time() / 1000;
 	mavlink_msg_storage_information_send_struct(_mavlink->get_channel(), &storage_info);
 }
+
+void MavlinkReceiver::handle_message_nfc_rx(mavlink_message_t *msg)
+{
+	mavlink_nfc_t nfc_msg;
+	mavlink_msg_nfc_decode(msg, &nfc_msg);
+	
+	nfc_rx_s nfc_topic = {};
+	
+	nfc_topic.timestamp = hrt_absolute_time();
+	nfc_topic.data_id = nfc_msg.data_id;
+	nfc_topic.data_len = nfc_msg.data_len;
+	nfc_topic.data_nr = nfc_msg.data_nr;
+	memcpy(nfc_topic.nfc_id, nfc_msg.nfc_id, sizeof(nfc_topic.nfc_id));
+	memcpy(nfc_topic.data, nfc_msg.data, sizeof(nfc_topic.data));
+	
+	if (_nfc_rx_pub == nullptr) {
+		_nfc_rx_pub = orb_advertise(ORB_ID(nfc_rx), &nfc_topic);
+
+	} else {
+		orb_publish(ORB_ID(nfc_rx), _nfc_rx_pub, &nfc_topic);
+	}
+}
+
 
 void
 MavlinkReceiver::handle_message_command_long(mavlink_message_t *msg)

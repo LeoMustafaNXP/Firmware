@@ -54,6 +54,9 @@
 #include <px4_time.h>
 #include <systemlib/mavlink_log.h>
 
+#include <uORB/topics/heartbeatsign.h>
+#include <uORB/topics/nfc_tx.h>
+#include <uORB/topics/nfc_rx.h>
 #include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/actuator_outputs.h>
@@ -287,6 +290,166 @@ void get_mavlink_mode_state(const struct vehicle_status_s *const status, uint8_t
 		*mavlink_state = MAV_STATE_CRITICAL;
 	}
 }
+
+class MavlinkStreamHeartbeatsign : public MavlinkStream
+{
+public:
+	const char *get_name() const
+	{
+		return MavlinkStreamHeartbeatsign::get_name_static();
+	}
+
+	static const char *get_name_static()
+	{
+		return "HEARTBEATSIGN";
+	}
+
+	static uint16_t get_id_static()
+	{
+		return MAVLINK_MSG_ID_HEARTBEATSIGN;
+	}
+
+	uint16_t get_id()
+	{
+		return get_id_static();
+	}
+
+	static MavlinkStream *new_instance(Mavlink *mavlink)
+	{
+		return new MavlinkStreamHeartbeatsign(mavlink);
+	}
+
+	unsigned get_size()
+	{
+		return MAVLINK_MSG_ID_HEARTBEATSIGN_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES;
+	}
+
+	bool const_rate()
+	{
+		return true;
+	}
+
+private:
+	MavlinkOrbSubscription *_status_sub;
+	MavlinkOrbSubscription *_sign_sub;
+	uint64_t _sign_time;
+
+	/* do not allow top copying this class */
+	MavlinkStreamHeartbeatsign(MavlinkStreamHeartbeatsign &) = delete;
+	MavlinkStreamHeartbeatsign &operator = (const MavlinkStreamHeartbeatsign &) = delete;
+
+protected:
+	explicit MavlinkStreamHeartbeatsign(Mavlink *mavlink) : MavlinkStream(mavlink),
+		_status_sub(_mavlink->add_orb_subscription(ORB_ID(vehicle_status))),
+		_sign_sub(_mavlink->add_orb_subscription(ORB_ID(heartbeatsign))),
+		_sign_time(0)
+	{}
+
+	bool send(const hrt_abstime t)
+	{
+		
+		uint8_t base_mode = 0;
+		uint32_t custom_mode = 0;
+		uint8_t system_status = 0;
+		uint16_t signlen = 0;
+		
+		uint8_t signature[64] = {0};
+		
+		struct heartbeatsign_s heartbeatsign ={};
+
+		if (_sign_sub->update(&_sign_time, &heartbeatsign)) {
+			//printf("MAVLINK HAERTBEAT SIGN\n");
+			
+			base_mode = heartbeatsign.basemode;
+			custom_mode = heartbeatsign.custommode;
+			system_status = heartbeatsign.systemstatus;
+			signlen = heartbeatsign.signlen;
+			memcpy(signature,heartbeatsign.signature, sizeof(signature));
+			 
+			//printf("Base_Mode:	%i\n", base_mode);
+			//printf("Custome_Mode:	%i\n", custom_mode);
+			//printf("System_Status:	%i\n\n", system_status);
+			//printf("SignLen:	%i\n\n", signlen);
+			
+			mavlink_msg_heartbeatsign_send(_mavlink->get_channel(), _mavlink->get_system_type(), MAV_AUTOPILOT_PX4,
+						   base_mode, custom_mode, system_status, signlen ,signature);
+
+			return true;
+		}
+		return false; 
+	}
+};
+
+class MavlinkStreamNFC : public MavlinkStream
+{
+public:
+	const char *get_name() const
+	{
+		return MavlinkStreamNFC::get_name_static();
+	}
+
+	static const char *get_name_static()
+	{
+		return "NFC";
+	}
+
+	static uint16_t get_id_static()
+	{
+		return MAVLINK_MSG_ID_NFC;
+	}
+
+	uint16_t get_id()
+	{
+		return get_id_static();
+	}
+
+	static MavlinkStream *new_instance(Mavlink *mavlink)
+	{
+		return new MavlinkStreamNFC(mavlink);
+	}
+
+	unsigned get_size()
+	{
+		return MAVLINK_MSG_ID_NFC_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES;
+	}
+
+private:
+	MavlinkOrbSubscription *_nfc_tx_sub;
+	uint64_t _nfc_tx_time;
+
+	/* do not allow top copying this class */
+	MavlinkStreamNFC(MavlinkStreamNFC &) = delete;
+	MavlinkStreamNFC &operator = (const MavlinkStreamNFC &) = delete;
+
+
+protected:
+	explicit MavlinkStreamNFC(Mavlink *mavlink) : MavlinkStream(mavlink),
+		_nfc_tx_sub(_mavlink->add_orb_subscription(ORB_ID(nfc_tx))),
+		_nfc_tx_time(0)
+	{}
+
+	bool send(const hrt_abstime t)
+	{
+		 nfc_tx_s nfc = {};
+
+		if (_nfc_tx_sub->update(&_nfc_tx_time, &nfc)) {
+			
+			mavlink_nfc_t msg = {};
+						
+			memcpy(msg.nfc_id, nfc.nfc_id, sizeof(msg.nfc_id));
+			msg.data_id = nfc.data_id;
+			msg.data_len = nfc.data_len;
+			msg.data_nr = nfc.data_nr;
+			memcpy(msg.data, nfc.data, sizeof(msg.data));
+			//printf("send MAVLINK NFC MSG\n");
+			mavlink_msg_nfc_send_struct(_mavlink->get_channel(), &msg);
+			//printf("gesendet MAVLINK NFC MSG\n");
+			return true;
+		}
+
+		return false;
+	}
+};
 
 
 class MavlinkStreamHeartbeat : public MavlinkStream
@@ -4511,6 +4674,8 @@ protected:
 };
 
 static const StreamListItem streams_list[] = {
+	StreamListItem(&MavlinkStreamNFC::new_instance, &MavlinkStreamNFC::get_name_static, &MavlinkStreamNFC::get_id_static),
+	StreamListItem(&MavlinkStreamHeartbeatsign::new_instance, &MavlinkStreamHeartbeatsign::get_name_static, &MavlinkStreamHeartbeatsign::get_id_static),
 	StreamListItem(&MavlinkStreamHeartbeat::new_instance, &MavlinkStreamHeartbeat::get_name_static, &MavlinkStreamHeartbeat::get_id_static),
 	StreamListItem(&MavlinkStreamStatustext::new_instance, &MavlinkStreamStatustext::get_name_static, &MavlinkStreamStatustext::get_id_static),
 	StreamListItem(&MavlinkStreamCommandLong::new_instance, &MavlinkStreamCommandLong::get_name_static, &MavlinkStreamCommandLong::get_id_static),
