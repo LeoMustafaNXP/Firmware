@@ -148,7 +148,7 @@
 #define MAVLINK_MSG_NFC_FIELD_DATA_LEN 200
 
 #define WAITTIME 5 //in sek
-#define WAITTIMEACK 1 //in sek
+#define WAITTIMEACK 5 //in sek
 
 enum states{
 	init,
@@ -799,6 +799,7 @@ void waitForACK(void){
 	
 	clock_gettime(CLOCK_REALTIME, &_ts);
 	start_timeACK = _ts.tv_sec;
+	recvACK == 0;
 	
 	nfc_rx_sub_fdACK = orb_subscribe(ORB_ID(nfc_rx));
 
@@ -807,7 +808,6 @@ void waitForACK(void){
 		{ .fd = nfc_rx_sub_fdACK,   .events = POLLIN },
 	};
 	//int l =0;
-
 	while(recvACK == 0){
 		//l++;
 		clock_gettime(CLOCK_REALTIME, &_ts);
@@ -820,7 +820,7 @@ void waitForACK(void){
 			break;
 		}
 		
-		px4_poll(fdsACK, 1, 5);
+		px4_poll(fdsACK, 1, 1000);
 		//getNFCmsg = 0; 
 		if (fdsACK[0].revents & POLLIN) {			
 			orb_copy(ORB_ID(nfc_rx), nfc_rx_sub_fdACK, &nfc_rx);
@@ -831,17 +831,13 @@ void waitForACK(void){
 				recvACK = 1; 
 			}
 		}
-		
 		//if(l > 100000){
 			//printf("BREAK\n");
 			////j = j-1;
 			//recvACK = -1;
 			//break;
 	 	//}
-		
 	}
-	
-	
 }
 
 
@@ -1029,46 +1025,47 @@ void evalStates(void){
 		
 		loadCAFromFile();
 
-		printf("len_output_bufCA: %i\n",lenCA);
-		printf("output_bufCA:\n %s\n", output_bufCA);
+		//printf("len_output_bufCA: %i\n",lenCA);
+		//printf("output_bufCA:\n %s\n", output_bufCA);
 		
 		nfc_tx_stc.data_len = lenCA/sizeof(nfc_tx_stc.data) + 1;
-		printf("packetCounter: %i\n", nfc_tx_stc.data_len);
+		//printf("packetCounter: %i\n", nfc_tx_stc.data_len);
 		
 		int nfcrestc = lenCA - ( sizeof(nfc_tx_stc.data) * (nfc_tx_stc.data_len-1));
-		printf("nfcrest: %i\n", nfcrestc);
+		//printf("nfcrest: %i\n", nfcrestc);
 		
 		for(j = 0; j <  nfc_tx_stc.data_len; j++){
 		
 			nfc_tx_stc.data_nr = j + 1;
-			printf("TxNfcDataNr:	%i\n", nfc_tx_stc.data_nr);
+			//printf("TxNfcDataNr:	%i\n", nfc_tx_stc.data_nr);
 			
-			printf("TxNfcData:\n");
+			//printf("TxNfcData:\n");
 			
 			if((nfc_tx_stc.data_nr == nfc_tx_stc.data_len)&&(nfcrestc != 0)){
 				for(i = 0; i < nfcrestc; i++){
 					nfc_tx_stc.data[i] = output_bufCA[i+(j*(sizeof(nfc_tx_stc.data)))];
-					printf("%c", nfc_tx_stc.data[i]);
+					//printf("%c", nfc_tx_stc.data[i]);
 				}
 				
 				for(i = nfcrestc; i < sizeof(nfc_tx_st.data); i++){
 					nfc_tx_stc.data[i] = '\0';
-					printf("%c", nfc_tx_stc.data[i]);
+					//printf("%c", nfc_tx_stc.data[i]);
 				}
 				
 			}else{
 				for(i = 0; i < sizeof(nfc_tx_st.data); i++){
 					nfc_tx_stc.data[i] = output_bufCA[i+(j*(sizeof(nfc_tx_stc.data)))];
-					printf("%c", nfc_tx_stc.data[i]);
+					//printf("%c", nfc_tx_stc.data[i]);
 				}
 			}
-				printf("\n");
+				//printf("\n");
 			
 			PX4_INFO("Sending Data to NFC!");
 			orb_publish(ORB_ID(nfc_tx), nfc_tx_pub_fdc, &nfc_tx_stc);
-			
+
+			//sleep(1);  
 			waitForACK();
-			recvACK = 0;  
+			recvACK = 0;
 			
 			//free(output_bufCSR);
 		}

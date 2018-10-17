@@ -1812,6 +1812,8 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 
 	case MAVLINK_MODE_IRIDIUM:
 		configure_stream_local("HIGH_LATENCY2", 0.015f);
+		configure_stream("NFC", nfc_rate);
+		configure_stream("HEARTBEATSIGN", 0.1f);
 		break;
 
 	case MAVLINK_MODE_MINIMAL:
