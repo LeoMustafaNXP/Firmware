@@ -58,3 +58,6 @@
 	path = cmake/configs/uavcan_board_ident
 	url = https://github.com/PX4/uavcan_board_ident.git
 	branch = master
+[submodule "src/examples/d2xsign/mbedtls"]
+	path = src/examples/d2xsign/mbedtls
+	url = https://github.com/ARMmbed/mbedtls.git

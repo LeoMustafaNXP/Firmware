@@ -1742,6 +1742,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 	};
 
 	const float unlimited_rate = -1.f;
+	int nfc_rate = 1.0f;
 
 	switch (_mode) {
 	case MAVLINK_MODE_NORMAL:
@@ -1777,6 +1778,8 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("VFR_HUD", 4.0f);
 		configure_stream_local("VISION_POSITION_ESTIMATE", 1.0f);
 		configure_stream_local("WIND_COV", 1.0f);
+		configure_stream("NFC", nfc_rate);
+		configure_stream("HEARTBEATSIGN", 0.1f);
 		break;
 
 	case MAVLINK_MODE_ONBOARD:
@@ -1819,6 +1822,8 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("VFR_HUD", 10.0f);
 		configure_stream_local("VISION_POSITION_ESTIMATE", 10.0f);
 		configure_stream_local("WIND_COV", 10.0f);
+		configure_stream("NFC", nfc_rate);
+		configure_stream("HEARTBEATSIGN", 0.1f);
 		break;
 
 	case MAVLINK_MODE_OSD:
@@ -1836,6 +1841,8 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("SYSTEM_TIME", 1.0f);
 		configure_stream_local("VFR_HUD", 25.0f);
 		configure_stream_local("WIND_COV", 2.0f);
+		configure_stream("NFC", nfc_rate);
+		configure_stream("HEARTBEATSIGN", 0.1f);
 		break;
 
 	case MAVLINK_MODE_MAGIC:
@@ -1843,6 +1850,8 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 	/* fallthrough */
 	case MAVLINK_MODE_CUSTOM:
 		//stream nothing
+		configure_stream("NFC", nfc_rate);
+		configure_stream("HEARTBEATSIGN", 0.1f);
 		break;
 
 	case MAVLINK_MODE_CONFIG:
@@ -1884,6 +1893,8 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("VFR_HUD", 20.0f);
 		configure_stream_local("VISION_POSITION_ESTIMATE", 10.0f);
 		configure_stream_local("WIND_COV", 10.0f);
+		configure_stream("NFC", nfc_rate);
+		configure_stream("HEARTBEATSIGN", 0.1f);
 		break;
 
 	case MAVLINK_MODE_IRIDIUM:
@@ -1901,6 +1912,8 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("RC_CHANNELS", 0.5f);
 		configure_stream_local("SYS_STATUS", 0.1f);
 		configure_stream_local("VFR_HUD", 1.0f);
+		configure_stream("NFC", nfc_rate);
+		configure_stream("HEARTBEATSIGN", 0.1f);
 		break;
 
 	default:

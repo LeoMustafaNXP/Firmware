@@ -83,6 +83,9 @@
 #include <uORB/topics/vehicle_rates_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
 
+#include <uORB/topics/nfc_tx.h>
+#include <uORB/topics/nfc_rx.h>
+
 #include "mavlink_ftp.h"
 #include "mavlink_log_handler.h"
 #include "mavlink_mission.h"
@@ -163,7 +166,7 @@ private:
 	void handle_message_debug(mavlink_message_t *msg);
 	void handle_message_debug_vect(mavlink_message_t *msg);
 	void handle_message_debug_float_array(mavlink_message_t *msg);
-
+	void handle_message_nfc_rx(mavlink_message_t *msg);
 	void *receive_thread(void *arg);
 
 	/**
@@ -208,6 +211,7 @@ private:
 	struct vehicle_local_position_s _hil_local_pos;
 	struct vehicle_land_detected_s _hil_land_detector;
 	struct vehicle_control_mode_s _control_mode;
+	orb_advert_t _nfc_rx_pub;
 	orb_advert_t _global_pos_pub;
 	orb_advert_t _local_pos_pub;
 	orb_advert_t _attitude_pub;

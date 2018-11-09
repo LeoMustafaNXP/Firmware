@@ -369,7 +369,7 @@ function(px4_add_common_flags)
 	set(warnings
 		-Wall
 		-Wextra
-		-Werror
+		#-Werror # disable because of mbedtls
 
 		-Warray-bounds
 		-Wdisabled-optimization
