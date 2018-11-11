@@ -12,6 +12,11 @@
 #include <px4_tasks.h>
 #include <unistd.h>
 
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <stdint.h>
+
 // includes for uORB and mavlink communication
 #include <uORB/uORB.h>
 #include <uORB/topics/debug_key_value.h>
@@ -129,6 +134,7 @@ NfcCommands event_nfcCmd_type{nfcCmd_NULL};    // NFC command type
 
 // generic buffer
 uint8_t ioBuffer[1024];
+int j;
 
 // NFC companion controller communication
 struct nfc_rx_s nfc_rx;
@@ -244,7 +250,16 @@ int d2xsign_main(__attribute__((unused))int argc, __attribute__((unused))char *a
 			if (nfc_rx.data_id != DATAID_ACK) {
 				event_nfcCmd = true;
 
-				printf("Recieve Mavlink Message: \n");
+				// set LED AMBER NORMAL BLINKING
+				//led_control.num_blinks = 10;                     // bkinks
+				led_control.priority = led_control_s::MAX_PRIORITY; // priority
+				led_control.mode = led_control_s::MODE_BLINK_NORMAL;  // led mode
+				led_control.led_mask = 0xff;                     // select leds - 0xff for all
+				led_control.color = led_control_s::COLOR_AMBER;     // color
+
+				orb_publish(ORB_ID(led_control), led_control_pub, &led_control); // publish the message to uORB service
+
+				printf("\nRecieve Mavlink Message: \n");
 				printf("NFC_ID:		");
 
 				for (uint8_t i = 0; i < sizeof(nfc_rx.nfc_id); i++) {
@@ -254,7 +269,7 @@ int d2xsign_main(__attribute__((unused))int argc, __attribute__((unused))char *a
 
 				printf("\n");
 
-				printf("NFC_ID_s:	%s \n", RxNfcID_s);
+				//printf("NFC_ID_s:	%s \n", RxNfcID_s);
 				printf("NFC_Data_ID:	%i\n", nfc_rx.data_id);
 				printf("NFC_Data_Len:	%i\n", nfc_rx.data_len);
 				printf("NFC_Data_nr:	%i\n", nfc_rx.data_nr);
@@ -320,19 +335,19 @@ int d2xsign_main(__attribute__((unused))int argc, __attribute__((unused))char *a
 			dump_pubkey(" + Pub:  ", mbedtls_pk_ec(pk_ctx));            // debug
 			dump_privkey(" + Priv: ", mbedtls_pk_ec(pk_ctx));           // debug
 
-			PX4_INFO("loading root CA certificate from file...");
+			// PX4_INFO("loading root CA certificate from file...");
 
-			if ((ret = load_cert(&rootca_cert, ROOTCA_FILE)) != 0) {
-				PX4_ERR("load_cert ERROR -0x%04X", -ret);
-				PX4_ERR("TODO: unhandled error, see previous messages");
-			}
+			// if ((ret = load_cert(&rootca_cert, ROOTCA_FILE)) != 0) {
+			// 	PX4_ERR("load_cert ERROR -0x%04X", -ret);
+			// 	PX4_ERR("TODO: unhandled error, see previous messages");
+			// }
 
-			PX4_INFO("loading intermediate CA certificate from file...");
+			// PX4_INFO("loading intermediate CA certificate from file...");
 
-			if ((ret = load_cert(&intermca_cert, INTERMCA_FILE)) != 0) {
-				PX4_ERR("load_cert ERROR -0x%04X", -ret);
-				PX4_ERR("TODO: unhandled error, see previous messages");
-			}
+			// if ((ret = load_cert(&intermca_cert, INTERMCA_FILE)) != 0) {
+			// 	PX4_ERR("load_cert ERROR -0x%04X", -ret);
+			// 	PX4_ERR("TODO: unhandled error, see previous messages");
+			// }
 
 			// set led to RED FAST BLINKING
 			//led_control.num_blinks = 10;                     // bkinks
@@ -382,14 +397,7 @@ int d2xsign_main(__attribute__((unused))int argc, __attribute__((unused))char *a
 						/* [NEXT STATE: ENTRY ACTIONS] */
 						PX4_INFO("----- ENTRY state_recvRootCA -----");
 
-						// set LED AMBER NORMAL BLINKING
-						//led_control.num_blinks = 10;                     // bkinks
-						led_control.priority = led_control_s::MAX_PRIORITY; // priority
-						led_control.mode = led_control_s::MODE_BLINK_NORMAL;  // led mode
-						led_control.led_mask = 0xff;                     // select leds - 0xff for all
-						led_control.color = led_control_s::COLOR_AMBER;     // color
 
-						orb_publish(ORB_ID(led_control), led_control_pub, &led_control); // publish the message to uORB service
 						break;
 
 					case nfcCmd_Csr:
@@ -442,14 +450,36 @@ int d2xsign_main(__attribute__((unused))int argc, __attribute__((unused))char *a
 				PX4_INFO("received data len: %i", (nfc_rx.data_len * MAVLINK_MSG_NFC_FIELD_DATA_LEN));
 
 				// save the reveived certificate data to file
-				if (write_file_from_buffer(ioBuffer, strlen(reinterpret_cast<const char *>(ioBuffer)), ROOTCA_FILE) != 0) {
+				// if (write_file_from_buffer(ioBuffer, strlen(reinterpret_cast<const char *>(ioBuffer)), INTERMCA_FILE) != 0) {
+				// 	PX4_ERR("TODO: unhandled error, see previous messages");
+				// }
+
+				PX4_INFO("loading intermediate CA certificate...");
+
+				ret = load_cert(&intermca_cert, INTERMCA_FILE);
+
+				if (MBEDTLS_ERR_PK_FILE_IO_ERROR == ret) {
+					PX4_INFO("write intermediate CA certificate to file...");
+
+					if (write_file_from_buffer(ioBuffer, strlen(reinterpret_cast<const char *>(ioBuffer)), INTERMCA_FILE) != 0) {
+						PX4_ERR("TODO: unhandled error, see previous messages");
+					}
+
+					if (load_cert(&intermca_cert, INTERMCA_FILE) != 0) {
+						PX4_ERR("TODO: unhandled error, see previous messages");
+					}
+
+				} else if (ret == 0) {
+					PX4_INFO("intermediate CA certificate successful loaded from file...");
+
+				} else {
 					PX4_ERR("TODO: unhandled error, see previous messages");
 				}
 
 				// load the root CA certificate
-				if (load_cert(&rootca_cert, ROOTCA_FILE) != 0) {
-					PX4_ERR("TODO: unhandled error, see previous messages");
-				}
+				// if (load_cert(&intermca_cert, INTERMCA_FILE) != 0) {
+				// 	PX4_ERR("TODO: unhandled error, see previous messages");
+				// }
 			}
 
 			/* [STATE TRANSITION] */
@@ -493,7 +523,7 @@ int d2xsign_main(__attribute__((unused))int argc, __attribute__((unused))char *a
 				// TODO: not only root CA is needed, but also intermediate CA!
 				uint32_t flags;
 
-				if ((mbedtls_x509_crt_verify(&uav_cert, &rootca_cert, nullptr, nullptr, &flags, nullptr, nullptr)) == 0) {
+				if ((mbedtls_x509_crt_verify(&uav_cert, &intermca_cert, nullptr, nullptr, &flags, nullptr, nullptr)) == 0) {
 					PX4_INFO("UAV certificate OK!");
 
 				} else {
@@ -511,6 +541,8 @@ int d2xsign_main(__attribute__((unused))int argc, __attribute__((unused))char *a
 			// none
 			/* [NEXT STATE: ENTRY ACTIONS] */
 			PX4_INFO("----- ENTRY state_sendDataRootCa -----");
+			//system("mavlink start -d /dev/ttyS4");
+
 			break;
 
 		case state_generateCsr:
@@ -561,8 +593,25 @@ int d2xsign_main(__attribute__((unused))int argc, __attribute__((unused))char *a
 				PX4_ERR("TODO: unhandled error, see previous messages");
 			}
 
+			printf("ret: %i\n", ret);
+			//printf("ioBuffer: %s\n", ioBuffer);
+			printf("ioBuffer:\n");
+
+			for (j = 0; j < ret; j++) {
+				printf("%c", ioBuffer[j]);
+			}
+
 			// send CSR file to NFC companion board
 			nfcCom_send(ioBuffer, ret, nfc_rx, DATAID_CSR);
+
+			// set LED PURPLE FAST BLINKING
+			//led_control.num_blinks = 5;                     // blinks
+			led_control.priority = led_control_s::MAX_PRIORITY; // priority
+			led_control.mode = led_control_s::MODE_BREATHE;  // led mode
+			led_control.led_mask = 0xff;                     // select leds - 0xff for all
+			led_control.color = led_control_s::COLOR_PURPLE;     // color
+
+			orb_publish(ORB_ID(led_control), led_control_pub, &led_control); // publish the message to uORB service
 
 			/* [STATE TRANSITION] */
 			currentState = state_wait;
@@ -571,14 +620,7 @@ int d2xsign_main(__attribute__((unused))int argc, __attribute__((unused))char *a
 			/* [NEXT STATE: ENTRY ACTIONS] */
 			PX4_INFO("----- ENTRY state_wait -----");
 
-			// set LED RED NORMAL BLINKING
-			//led_control.num_blinks = 10;                     // bkinks
-			led_control.priority = led_control_s::MAX_PRIORITY; // priority
-			led_control.mode = led_control_s::MODE_BLINK_NORMAL;  // led mode
-			led_control.led_mask = 0xff;                     // select leds - 0xff for all
-			led_control.color = led_control_s::COLOR_RED;     // color
 
-			orb_publish(ORB_ID(led_control), led_control_pub, &led_control); // publish the message to uORB service
 			break;
 
 		case state_sendDataRootCa:
@@ -587,10 +629,18 @@ int d2xsign_main(__attribute__((unused))int argc, __attribute__((unused))char *a
 			memset(ioBuffer, 0x00, sizeof(ioBuffer));
 
 			// read CSR from file to buffer
-			ret = read_file_to_buffer(ioBuffer, sizeof(ioBuffer), ROOTCA_FILE);
+			ret = read_file_to_buffer(ioBuffer, sizeof(ioBuffer), INTERMCA_FILE);
 
 			if (ret <= 0) {
 				PX4_ERR("TODO: unhandled error, see previous messages");
+			}
+
+			printf("ret: %i\n", ret);
+			//printf("ioBuffer: %s\n", ioBuffer);
+			printf("ioBuffer:\n");
+
+			for (j = 0; j < ret; j++) {
+				printf("%c", ioBuffer[j]);
 			}
 
 			// send root CA file to NFC companion board
@@ -602,6 +652,14 @@ int d2xsign_main(__attribute__((unused))int argc, __attribute__((unused))char *a
 			// none
 			/* [NEXT STATE: ENTRY ACTIONS] */
 			PX4_INFO("----- ENTRY state_sendSignMsg -----");
+			// set LED PURPLE FAST BLINKING
+			led_control.num_blinks = 30;
+			led_control.priority = led_control_s::MAX_PRIORITY; // priority
+			led_control.mode = led_control_s::MODE_BLINK_NORMAL;  // led mode
+			led_control.led_mask = 0xff;                     // select leds - 0xff for all
+			led_control.color = led_control_s::COLOR_GREEN;     // color
+
+			orb_publish(ORB_ID(led_control), led_control_pub, &led_control); // publish the message to uORB service
 			break;
 
 		case state_sendSignMsg: {
@@ -661,11 +719,11 @@ int d2xsign_main(__attribute__((unused))int argc, __attribute__((unused))char *a
 
 
 			/* [STATE TRANSITION] */
-			currentState = state_wait;
+			currentState = state_stop;
 			//* [THIS STATE: EXIT ACTIONS] */
 			// none
 			/* [NEXT STATE: ENTRY ACTIONS] */
-			PX4_INFO("----- ENTRY state_wait -----");
+			PX4_INFO("----- ENTRY state_stop -----");
 			break;
 
 		case state_stop:
@@ -831,8 +889,8 @@ int read_file_to_buffer(uint8_t *buf, size_t buflen, const char *input_file)
 		return -2;
 	}
 
-	if (fread(buf, filesize, 1, f) < static_cast<size_t>(filesize)) {
-		//PX4_ERR("file not read completely");		// TODO: check why file not read completely
+	if (fread(buf, 1, filesize, f) < static_cast<size_t>(filesize)) {
+		PX4_ERR("file not read completely");		// TODO: check why file not read completely
 		//fclose(f);
 		//return -3;
 	}
